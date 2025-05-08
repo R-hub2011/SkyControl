@@ -27,10 +27,10 @@ public class SkyControlMain extends Application {
         Canvas canvas = new Canvas(WIDTH, HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
 
-        // Add some sample aircraft
-        aircraftList.add(new Aircraft(100, 100, 20, 45));
-        aircraftList.add(new Aircraft(200, 300, 10, 90));
-        aircraftList.add(new Aircraft(600, 150, 20, 135));
+        // Add sample aircraft
+        aircraftList.add(new Aircraft(100, 100, 30, 45));
+        aircraftList.add(new Aircraft(200, 300, 40, 90));
+        aircraftList.add(new Aircraft(600, 150, 50, 135));
 
         // Handle mouse click to select aircraft
         canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
@@ -40,6 +40,9 @@ public class SkyControlMain extends Application {
                 ac.selected = ac.contains(mx, my);
             }
         });
+
+        // Handle keyboard inputs for selected aircraft
+        canvas.setOnKeyPressed(e -> handleKeyPress(e));
 
         // Main game loop
         AnimationTimer timer = new AnimationTimer() {
@@ -59,6 +62,33 @@ public class SkyControlMain extends Application {
         primaryStage.setTitle("SkyControl - Radar View");
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        // Focus the canvas to accept key events
+        canvas.requestFocus();
+    }
+
+    private void handleKeyPress(KeyEvent e) {
+        for (Aircraft ac : aircraftList) {
+            if (ac.selected) {
+                switch (e.getCode()) {
+                    case LEFT:
+                        ac.heading -= 5;  // Turn left by 5 degrees
+                        if (ac.heading < 0) ac.heading += 360;  // Wrap around if necessary
+                        break;
+                    case RIGHT:
+                        ac.heading += 5;  // Turn right by 5 degrees
+                        if (ac.heading >= 360) ac.heading -= 360;  // Wrap around if necessary
+                        break;
+                    case UP:
+                        ac.speed += 5;  // Increase speed
+                        break;
+                    case DOWN:
+                        ac.speed -= 5;  // Decrease speed
+                        if (ac.speed < 0) ac.speed = 0;  // Speed can't be negative
+                        break;
+                }
+            }
+        }
     }
 
     private void updateAndRender(GraphicsContext gc, double deltaTime) {
