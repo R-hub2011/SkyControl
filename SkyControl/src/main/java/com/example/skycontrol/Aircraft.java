@@ -2,12 +2,13 @@ package com.example.skycontrol;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-
 public class Aircraft {
     public double x, y;
-    public double speed;
-    public double heading;
+    public double speed;    // in pixels/second
+    public double heading;  // in degrees
     public boolean selected = false;
+    public boolean landing = false;  // is the aircraft landing?
+    public boolean departing = false; // is the aircraft departing?
 
     public Aircraft(double x, double y, double speed, double heading) {
         this.x = x;
@@ -17,6 +18,14 @@ public class Aircraft {
     }
 
     public void update(double deltaTime) {
+        if (landing) {
+            // Slow down as the aircraft approaches the runway
+            speed = Math.max(0, speed - 0.5);
+        } else if (departing) {
+            // Speed up as the aircraft departs
+            speed = Math.min(100, speed + 0.5);
+        }
+
         double radians = Math.toRadians(heading);
         x += Math.cos(radians) * speed * deltaTime;
         y += Math.sin(radians) * speed * deltaTime;

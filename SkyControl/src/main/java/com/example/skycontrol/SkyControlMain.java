@@ -6,10 +6,10 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
-import javafx.scene.input.KeyEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,7 @@ public class SkyControlMain extends Application {
         Canvas canvas = new Canvas(WIDTH, HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
 
-        // Add sample aircraft
+        // Add some sample aircraft
         aircraftList.add(new Aircraft(100, 100, 30, 45));
         aircraftList.add(new Aircraft(200, 300, 40, 90));
         aircraftList.add(new Aircraft(600, 150, 50, 135));
@@ -72,19 +72,19 @@ public class SkyControlMain extends Application {
             if (ac.selected) {
                 switch (e.getCode()) {
                     case LEFT:
-                        ac.heading -= 5;  // Turn left by 5 degrees
-                        if (ac.heading < 0) ac.heading += 360;  // Wrap around if necessary
+                        ac.heading -= 5;
+                        if (ac.heading < 0) ac.heading += 360;
                         break;
                     case RIGHT:
-                        ac.heading += 5;  // Turn right by 5 degrees
-                        if (ac.heading >= 360) ac.heading -= 360;  // Wrap around if necessary
+                        ac.heading += 5;
+                        if (ac.heading >= 360) ac.heading -= 360;
                         break;
                     case UP:
-                        ac.speed += 5;  // Increase speed
+                        ac.speed += 5;
                         break;
                     case DOWN:
-                        ac.speed -= 5;  // Decrease speed
-                        if (ac.speed < 0) ac.speed = 0;  // Speed can't be negative
+                        ac.speed -= 5;
+                        if (ac.speed < 0) ac.speed = 0;
                         break;
                 }
             }
@@ -118,8 +118,20 @@ public class SkyControlMain extends Application {
         gc.fillText("08R", 190, 340);
         gc.fillText("26L", 610, 340);
 
-        // Update and draw aircraft
+        // Landing and departure logic for aircraft near the runway
         for (Aircraft ac : aircraftList) {
+            if (ac.y > 230 && ac.y < 270) {
+                // Aircraft in range for landing (near the runway)
+                if (!ac.landing && !ac.departing) {
+                    ac.landing = true;  // Start landing process
+                }
+            }
+
+            if (ac.landing && ac.speed <= 0) {
+                ac.departing = true;  // After landing, start departing
+                ac.landing = false;
+            }
+
             ac.update(deltaTime);
             ac.draw(gc);
         }
