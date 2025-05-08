@@ -1,4 +1,5 @@
 package com.example.skycontrol;
+
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -6,7 +7,6 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
@@ -16,21 +16,16 @@ import java.util.List;
 
 public class SkyControlMain extends Application {
 
-    private static final int WIDTH = 800;
-    private static final int HEIGHT = 600;
+    private static final int INITIAL_WIDTH = 1600; // Initial canvas width
+    private static final int INITIAL_HEIGHT = 1000; // Initial canvas height
 
     private final List<Aircraft> aircraftList = new ArrayList<>();
     private long lastTime;
 
-    // Zoom properties
-    private double zoomLevel = 1.0;
-    private final double ZOOM_STEP = 0.1;
-    private double MIN_ZOOM = 0.15; // ZOOM OUT
-    private double MAX_ZOOM;
-
     @Override
     public void start(Stage primaryStage) {
-        Canvas canvas = new Canvas(WIDTH, HEIGHT);
+        // Create the initial canvas with the default size
+        Canvas canvas = new Canvas(INITIAL_WIDTH, INITIAL_HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
 
         // Add some sample aircraft
@@ -40,43 +35,40 @@ public class SkyControlMain extends Application {
 
         // Mouse click to select aircraft
         canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
-            double mx = e.getX() / zoomLevel;
-            double my = e.getY() / zoomLevel;
+            double mx = e.getX();
+            double my = e.getY();
             for (Aircraft ac : aircraftList) {
                 ac.selected = ac.contains(mx, my);
             }
         });
 
-        // Keyboard input
+        // Keyboard input for aircraft control
         canvas.setOnKeyPressed(this::handleKeyPress);
 
-        // Zoom scroll with Ctrl
+        // Set up the scene and link canvas to window resizing
         Scene scene = new Scene(new StackPane(canvas));
-        scene.setOnScroll((ScrollEvent e) -> {
-            if (e.isControlDown()) {
-                if (e.getDeltaY() > 0) {
-                    zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
-                } else {
-                    zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
-                }
-            }
-        });
-
         primaryStage.setTitle("SkyControl - Radar View");
         primaryStage.setScene(scene);
+
+        // Resize canvas based on the window size
+        scene.widthProperty().addListener((obs, oldWidth, newWidth) -> {
+            canvas.setWidth(newWidth.doubleValue());
+        });
+
+        scene.heightProperty().addListener((obs, oldHeight, newHeight) -> {
+            canvas.setHeight(newHeight.doubleValue());
+        });
+
         primaryStage.show();
         canvas.requestFocus();
 
-        // Set zoom limits
-        MAX_ZOOM = computeMaxZoom();
-
-        // Game loop
+        // Game loop for continuous rendering
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
                 if (lastTime > 0) {
                     double deltaTime = (now - lastTime) / 1_000_000_000.0;
-                    updateAndRender(gc, deltaTime);
+                    updateAndRender(gc, deltaTime, canvas.getWidth(), canvas.getHeight());
                 }
                 lastTime = now;
             }
@@ -85,6 +77,7 @@ public class SkyControlMain extends Application {
     }
 
     private void handleKeyPress(KeyEvent e) {
+        // Handling aircraft control (speed, heading) based on keyboard input
         for (Aircraft ac : aircraftList) {
             if (ac.selected) {
                 switch (e.getCode()) {
@@ -97,29 +90,32 @@ public class SkyControlMain extends Application {
         }
     }
 
-    private void updateAndRender(GraphicsContext gc, double deltaTime) {
+    private void updateAndRender(GraphicsContext gc, double deltaTime, double width, double height) {
+        // Clear the canvas with black background
         gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, WIDTH, HEIGHT);
+        gc.fillRect(0, 0, width, height);
 
         gc.save();
 
-        double centerX = WIDTH / 2.0;
-        double centerY = HEIGHT / 2.0;
+        // Set the center of the screen (runways)
+        double centerX = width / 2.0;
+        double centerY = height / 2.0;
 
-        gc.translate(centerX, centerY);
-        gc.scale(zoomLevel, zoomLevel);
-        gc.translate(-centerX, -centerY);
+        gc.translate(centerX, centerY); // Translate to center
+        gc.translate(-centerX, -centerY);  // Offset back to original center
 
-        drawGrid(gc);
-        drawRunways(gc);
+        // Draw grid and runways
+        drawGrid(gc, width, height);
+        drawRunways(gc, width, height);
 
+        // Update and render all aircraft
         for (Aircraft ac : aircraftList) {
             if (ac.y > 230 && ac.y < 270 && !ac.landing && !ac.departing) {
-                ac.landing = true;
+                ac.landing = true;  // Begin landing when aircraft is in range
             }
             if (ac.landing && ac.speed <= 0) {
                 ac.landing = false;
-                ac.departing = true;
+                ac.departing = true;  // Begin departing when landing is complete
             }
 
             ac.update(deltaTime);
@@ -129,48 +125,35 @@ public class SkyControlMain extends Application {
         gc.restore();
     }
 
-    private void drawGrid(GraphicsContext gc) {
+    private void drawGrid(GraphicsContext gc, double width, double height) {
         gc.setStroke(Color.DARKGREEN);
         gc.setLineWidth(1);
-        for (int i = 100; i < WIDTH; i += 100) {
-            gc.strokeLine(i, 0, i, HEIGHT);
+        for (int i = 100; i < width; i += 100) {
+            gc.strokeLine(i, 0, i, height);
         }
-        for (int i = 100; i < HEIGHT; i += 100) {
-            gc.strokeLine(0, i, WIDTH, i);
+        for (int i = 100; i < height; i += 100) {
+            gc.strokeLine(0, i, width, i);
         }
     }
 
-    private void drawRunways(GraphicsContext gc) {
+    private void drawRunways(GraphicsContext gc, double width, double height) {
+        // Reduced runway size and centered on screen
+        double runwayWidth = width * 0.4;  // 40% of the canvas width
+        double runwayHeight = 20;
+        double runwayStartX = (width - runwayWidth) / 2.0;
+        double runwayStartY = height / 2.0 - 40;  // Positioned slightly above the center
+
+        // Drawing runways smaller in the center
         gc.setStroke(Color.GRAY);
         gc.setLineWidth(6);
-        gc.strokeLine(200, 250, 600, 250); // 08L/26R
-        gc.strokeLine(200, 350, 600, 350); // 08R/26L
+        gc.strokeLine(runwayStartX, runwayStartY, runwayStartX + runwayWidth, runwayStartY);  // 08L/26R
+        gc.strokeLine(runwayStartX, runwayStartY + 100, runwayStartX + runwayWidth, runwayStartY + 100); // 08R/26L
 
         gc.setFill(Color.WHITE);
-        gc.fillText("08L", 190, 240);
-        gc.fillText("26R", 610, 240);
-        gc.fillText("08R", 190, 340);
-        gc.fillText("26L", 610, 340);
-    }
-
-    private double computeMaxZoom() {
-        double runwayStartX = 200;
-        double runwayEndX = 600;
-        double runwayTopY = 250;
-        double runwayBottomY = 350;
-
-        double runwayWidth = runwayEndX - runwayStartX;
-        double runwayHeight = runwayBottomY - runwayTopY;
-
-        double paddingPixels = 4 * 96; // 4 inches in pixels (~384)
-
-        double neededWidth = runwayWidth + 2 * paddingPixels;
-        double neededHeight = runwayHeight + 2 * paddingPixels;
-
-        double zoomX = WIDTH / neededWidth;
-        double zoomY = HEIGHT / neededHeight;
-
-        return Math.min(zoomX, zoomY);
+        gc.fillText("08L", runwayStartX - 20, runwayStartY - 10);
+        gc.fillText("26R", runwayStartX + runwayWidth + 10, runwayStartY - 10);
+        gc.fillText("08R", runwayStartX - 20, runwayStartY + 110);
+        gc.fillText("26L", runwayStartX + runwayWidth + 10, runwayStartY + 110);
     }
 
     public static void main(String[] args) {
