@@ -115,22 +115,32 @@ public class SkyControlMain extends Application {
     }
 
     private void drawRunways(GraphicsContext gc, double width, double height, double scaleFactor) {
-        double runwayWidth = (width * 0.2 + 192); // Don't scale width here
-        double runwayHeight = 20;
+        // Size of aircraft (let's assume the aircraft width is approximately 60px)
+        double aircraftWidth = 50 * scaleFactor;  // Adjust this value if the aircraft size changes
 
-        double runwayStartX = (width - runwayWidth) / 2.0;
-        double runwayStartY = height / 2.0 - 40;
+        // Runway width should be larger than the aircraft size, and proportional to the canvas size
+        double runwayWidth = aircraftWidth * 20;  // Make runway width 20 times the aircraft width
+        double runwayHeight = 300 * scaleFactor;  // Set a reasonable height based on scaleFactor
 
+        // Adjust the runway length and positioning based on the canvas size
+        double runwayStartX = (width - runwayWidth) / 2.0;  // Center the runway horizontally
+        double runwayStartY = height / 2.0 - runwayHeight / 2.0;  // Center the runway vertically
+
+        // Draw the runways in the center with the updated sizes
         gc.setStroke(Color.GRAY);
-        gc.setLineWidth(6);
-        gc.strokeLine(runwayStartX, runwayStartY, runwayStartX + runwayWidth, runwayStartY);
-        gc.strokeLine(runwayStartX, runwayStartY + 100, runwayStartX + runwayWidth, runwayStartY + 100);
+        gc.setLineWidth(40 * scaleFactor);  // Adjust line width for visibility
+        gc.strokeLine(runwayStartX, runwayStartY, runwayStartX + runwayWidth, runwayStartY);  // 08L/26R
+        gc.strokeLine(runwayStartX, runwayStartY + runwayHeight, runwayStartX + runwayWidth, runwayStartY + runwayHeight); // 08R/26L
 
+        // Set font size for runway labels, scaling with the runway size
+        gc.setFont(javafx.scene.text.Font.font("Arial", 150 * scaleFactor));  // Scale font with the runway
         gc.setFill(Color.WHITE);
-        gc.fillText("08L", runwayStartX - 20, runwayStartY - 10);
-        gc.fillText("26R", runwayStartX + runwayWidth + 10, runwayStartY - 10);
-        gc.fillText("08R", runwayStartX - 20, runwayStartY + 110);
-        gc.fillText("26L", runwayStartX + runwayWidth + 10, runwayStartY + 110);
+
+        // Draw runway labels with increased font size
+        gc.fillText("08L", runwayStartX - 300 * scaleFactor, runwayStartY - 30 * scaleFactor);  // Move left label further out
+        gc.fillText("26R", runwayStartX + runwayWidth + 30 * scaleFactor, runwayStartY - 30 * scaleFactor);  // Right label stays as is
+        gc.fillText("08R", runwayStartX - 300 * scaleFactor, runwayStartY + runwayHeight + 100 * scaleFactor);  // Move left label further down
+        gc.fillText("26L", runwayStartX + runwayWidth + 30 * scaleFactor, runwayStartY + runwayHeight + 100 * scaleFactor);  // Right label stays as is
     }
 
     public static void main(String[] args) {
