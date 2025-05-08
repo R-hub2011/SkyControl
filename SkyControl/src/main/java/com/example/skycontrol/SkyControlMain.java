@@ -1,12 +1,12 @@
 package com.example.skycontrol;
-
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
@@ -22,6 +22,12 @@ public class SkyControlMain extends Application {
     private final List<Aircraft> aircraftList = new ArrayList<>();
     private long lastTime;
 
+    // Zoom properties
+    private double zoomLevel = 1.0;
+    private final double ZOOM_STEP = 0.1;
+    private double MIN_ZOOM = 0.15; // ZOOM OUT
+    private double MAX_ZOOM;
+
     @Override
     public void start(Stage primaryStage) {
         Canvas canvas = new Canvas(WIDTH, HEIGHT);
@@ -32,19 +38,39 @@ public class SkyControlMain extends Application {
         aircraftList.add(new Aircraft(200, 300, 40, 90));
         aircraftList.add(new Aircraft(600, 150, 50, 135));
 
-        // Handle mouse click to select aircraft
+        // Mouse click to select aircraft
         canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
-            double mx = e.getX();
-            double my = e.getY();
+            double mx = e.getX() / zoomLevel;
+            double my = e.getY() / zoomLevel;
             for (Aircraft ac : aircraftList) {
                 ac.selected = ac.contains(mx, my);
             }
         });
 
-        // Handle keyboard inputs for selected aircraft
-        canvas.setOnKeyPressed(e -> handleKeyPress(e));
+        // Keyboard input
+        canvas.setOnKeyPressed(this::handleKeyPress);
 
-        // Main game loop
+        // Zoom scroll with Ctrl
+        Scene scene = new Scene(new StackPane(canvas));
+        scene.setOnScroll((ScrollEvent e) -> {
+            if (e.isControlDown()) {
+                if (e.getDeltaY() > 0) {
+                    zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+                } else {
+                    zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+                }
+            }
+        });
+
+        primaryStage.setTitle("SkyControl - Radar View");
+        primaryStage.setScene(scene);
+        primaryStage.show();
+        canvas.requestFocus();
+
+        // Set zoom limits
+        MAX_ZOOM = computeMaxZoom();
+
+        // Game loop
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
@@ -56,47 +82,54 @@ public class SkyControlMain extends Application {
             }
         };
         timer.start();
-
-        StackPane root = new StackPane(canvas);
-        Scene scene = new Scene(root);
-        primaryStage.setTitle("SkyControl - Radar View");
-        primaryStage.setScene(scene);
-        primaryStage.show();
-
-        // Focus the canvas to accept key events
-        canvas.requestFocus();
     }
 
     private void handleKeyPress(KeyEvent e) {
         for (Aircraft ac : aircraftList) {
             if (ac.selected) {
                 switch (e.getCode()) {
-                    case LEFT:
-                        ac.heading -= 5;
-                        if (ac.heading < 0) ac.heading += 360;
-                        break;
-                    case RIGHT:
-                        ac.heading += 5;
-                        if (ac.heading >= 360) ac.heading -= 360;
-                        break;
-                    case UP:
-                        ac.speed += 5;
-                        break;
-                    case DOWN:
-                        ac.speed -= 5;
-                        if (ac.speed < 0) ac.speed = 0;
-                        break;
+                    case LEFT -> ac.heading = (ac.heading - 5 + 360) % 360;
+                    case RIGHT -> ac.heading = (ac.heading + 5) % 360;
+                    case UP -> ac.speed += 5;
+                    case DOWN -> ac.speed = Math.max(0, ac.speed - 5);
                 }
             }
         }
     }
 
     private void updateAndRender(GraphicsContext gc, double deltaTime) {
-        // Background
         gc.setFill(Color.BLACK);
         gc.fillRect(0, 0, WIDTH, HEIGHT);
 
-        // Grid
+        gc.save();
+
+        double centerX = WIDTH / 2.0;
+        double centerY = HEIGHT / 2.0;
+
+        gc.translate(centerX, centerY);
+        gc.scale(zoomLevel, zoomLevel);
+        gc.translate(-centerX, -centerY);
+
+        drawGrid(gc);
+        drawRunways(gc);
+
+        for (Aircraft ac : aircraftList) {
+            if (ac.y > 230 && ac.y < 270 && !ac.landing && !ac.departing) {
+                ac.landing = true;
+            }
+            if (ac.landing && ac.speed <= 0) {
+                ac.landing = false;
+                ac.departing = true;
+            }
+
+            ac.update(deltaTime);
+            ac.draw(gc);
+        }
+
+        gc.restore();
+    }
+
+    private void drawGrid(GraphicsContext gc) {
         gc.setStroke(Color.DARKGREEN);
         gc.setLineWidth(1);
         for (int i = 100; i < WIDTH; i += 100) {
@@ -105,8 +138,9 @@ public class SkyControlMain extends Application {
         for (int i = 100; i < HEIGHT; i += 100) {
             gc.strokeLine(0, i, WIDTH, i);
         }
+    }
 
-        // Runways
+    private void drawRunways(GraphicsContext gc) {
         gc.setStroke(Color.GRAY);
         gc.setLineWidth(6);
         gc.strokeLine(200, 250, 600, 250); // 08L/26R
@@ -117,24 +151,26 @@ public class SkyControlMain extends Application {
         gc.fillText("26R", 610, 240);
         gc.fillText("08R", 190, 340);
         gc.fillText("26L", 610, 340);
+    }
 
-        // Landing and departure logic for aircraft near the runway
-        for (Aircraft ac : aircraftList) {
-            if (ac.y > 230 && ac.y < 270) {
-                // Aircraft in range for landing (near the runway)
-                if (!ac.landing && !ac.departing) {
-                    ac.landing = true;  // Start landing process
-                }
-            }
+    private double computeMaxZoom() {
+        double runwayStartX = 200;
+        double runwayEndX = 600;
+        double runwayTopY = 250;
+        double runwayBottomY = 350;
 
-            if (ac.landing && ac.speed <= 0) {
-                ac.departing = true;  // After landing, start departing
-                ac.landing = false;
-            }
+        double runwayWidth = runwayEndX - runwayStartX;
+        double runwayHeight = runwayBottomY - runwayTopY;
 
-            ac.update(deltaTime);
-            ac.draw(gc);
-        }
+        double paddingPixels = 4 * 96; // 4 inches in pixels (~384)
+
+        double neededWidth = runwayWidth + 2 * paddingPixels;
+        double neededHeight = runwayHeight + 2 * paddingPixels;
+
+        double zoomX = WIDTH / neededWidth;
+        double zoomY = HEIGHT / neededHeight;
+
+        return Math.min(zoomX, zoomY);
     }
 
     public static void main(String[] args) {
