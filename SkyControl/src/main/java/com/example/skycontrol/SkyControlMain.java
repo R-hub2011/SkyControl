@@ -1,5 +1,8 @@
 package com.example.skycontrol;
 
+import com.example.skycontrol.aircraft.Aircraft;
+import com.example.skycontrol.runways.Runway;
+import com.example.skycontrol.runways.RunwayDrawer;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -20,6 +23,9 @@ public class SkyControlMain extends Application {
     private static final int INITIAL_HEIGHT = 1000;
 
     private final List<Aircraft> aircraftList = new ArrayList<>();
+    private final List<Runway> runways = new ArrayList<>();
+    private final RunwayDrawer runwayDrawer = new RunwayDrawer();
+
     private long lastTime;
 
     @Override
@@ -27,10 +33,17 @@ public class SkyControlMain extends Application {
         Canvas canvas = new Canvas(INITIAL_WIDTH, INITIAL_HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
 
-        // Sample aircraft
+        // Initialize aircraft
         aircraftList.add(new Aircraft(100, 100, 30, 45));
         aircraftList.add(new Aircraft(200, 300, 40, 90));
         aircraftList.add(new Aircraft(600, 150, 50, 135));
+
+        // Initialize runways
+        runways.add(new Runway("08L", "26R", 9000));
+        runways.add(new Runway("08R", "26L", 9402));
+        runways.add(new Runway("09", "27", 10000));
+        runways.add(new Runway("16L", "33R", 12001));
+        runways.add(new Runway("15R", "33L", 10000));
 
         // Mouse click to select aircraft
         canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
@@ -88,16 +101,17 @@ public class SkyControlMain extends Application {
         gc.setFill(Color.BLACK);
         gc.fillRect(0, 0, width, height);
 
-        double scaleFactor = 0.30;
+        double scaleFactor = 0.6; // Increased visual scale
 
-        // --- FIX: Scale and center the world properly ---
         gc.save();
-        gc.translate(width / 2, height / 2);     // Move origin to center
-        gc.scale(scaleFactor, scaleFactor);      // Scale around center
-        gc.translate(-width / 2, -height / 2);   // Shift drawing back to top-left
+        gc.translate(width / 2, height / 2);
+        gc.scale(scaleFactor, scaleFactor);
+        gc.translate(-width / 2, -height / 2);
 
-        drawRunways(gc, width, height, scaleFactor);
+        // Draw runways with reduced length ratio
+        runwayDrawer.drawRunways(gc, width, height, scaleFactor, runways);
 
+        // Draw and update aircraft
         for (Aircraft ac : aircraftList) {
             if (ac.y > 230 && ac.y < 270 && !ac.landing && !ac.departing) {
                 ac.landing = true;
@@ -108,29 +122,10 @@ public class SkyControlMain extends Application {
             }
 
             ac.update(deltaTime);
-            ac.draw(gc);
+            ac.draw(gc, scaleFactor); // Scaled drawing
         }
 
-        gc.restore(); // Restore original transform
-    }
-
-    private void drawRunways(GraphicsContext gc, double width, double height, double scaleFactor) {
-        double runwayWidth = (width * 0.2 + 192); // Don't scale width here
-        double runwayHeight = 20;
-
-        double runwayStartX = (width - runwayWidth) / 2.0;
-        double runwayStartY = height / 2.0 - 40;
-
-        gc.setStroke(Color.GRAY);
-        gc.setLineWidth(6);
-        gc.strokeLine(runwayStartX, runwayStartY, runwayStartX + runwayWidth, runwayStartY);
-        gc.strokeLine(runwayStartX, runwayStartY + 100, runwayStartX + runwayWidth, runwayStartY + 100);
-
-        gc.setFill(Color.WHITE);
-        gc.fillText("08L", runwayStartX - 20, runwayStartY - 10);
-        gc.fillText("26R", runwayStartX + runwayWidth + 10, runwayStartY - 10);
-        gc.fillText("08R", runwayStartX - 20, runwayStartY + 110);
-        gc.fillText("26L", runwayStartX + runwayWidth + 10, runwayStartY + 110);
+        gc.restore();
     }
 
     public static void main(String[] args) {

@@ -5,4 +5,6 @@ module com.example.skycontrol {
 
     opens com.example.skycontrol to javafx.fxml;
     exports com.example.skycontrol;
+    exports com.example.skycontrol.aircraft;
+    opens com.example.skycontrol.aircraft to javafx.fxml;
 }
