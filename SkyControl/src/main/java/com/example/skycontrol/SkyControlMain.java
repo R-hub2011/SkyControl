@@ -45,6 +45,9 @@ public class SkyControlMain extends Application {
         runways.add(new Runway("16L", "33R", 12001));
         runways.add(new Runway("15R", "33L", 10000));
 
+        RunwayDrawer drawer = new RunwayDrawer();
+        drawer.drawRunways(gc, canvas.getWidth(), canvas.getHeight(), 0.6, runways);
+
         // Mouse click to select aircraft
         canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
             double mx = e.getX();

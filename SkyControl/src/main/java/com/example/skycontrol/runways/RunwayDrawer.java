@@ -9,76 +9,81 @@ import java.util.List;
 public class RunwayDrawer {
 
     public void drawRunways(GraphicsContext gc, double width, double height, double scaleFactor, List<Runway> runways) {
-        int maxLength = runways.stream().mapToInt(Runway::getLengthFeet).max().orElse(10000);
-        double maxVisualLength = width * 0.3;  // Max runway should take up ~30% of canvas width
+        double centerX = width / 2.0;
+        double centerY = height / 2.0;
 
-        double spacing = 75 * scaleFactor;
-        double startY = height / 2.0 - (runways.size() / 2.0 * spacing);
+        // Rotate everything 90° counter-clockwise
+        gc.save();
+        gc.translate(centerX, centerY);
+        gc.rotate(-90);
+        gc.translate(-centerX, -centerY);
 
-        gc.setStroke(Color.GRAY);
+        gc.setFont(Font.font("Arial", 18 * scaleFactor));
         gc.setLineWidth(6);
-        gc.setFill(Color.WHITE);
-        gc.setFont(Font.font("Arial", 40 * scaleFactor));
 
-        // Loop over all runways
+        drawAxes(gc, centerX, centerY); // X/Y axis for reference
+
+        int maxLength = runways.stream().mapToInt(Runway::getLengthFeet).max().orElse(10000);
+        double maxVisualLength = width * 0.7;  // Increase this for bigger runway drawings
+        double spacing = 100 * scaleFactor;
+
         for (int i = 0; i < runways.size(); i++) {
             Runway runway = runways.get(i);
+            double visualLength = ((runway.getLengthFeet() / (double) maxLength) * maxVisualLength);
 
-            // Calculate visual length of runway based on real-world length and max length
-            double visualLength = ((runway.getLengthFeet() / (double) maxLength) * maxVisualLength) * 0.3;
+            double angle = getRunwayAngle(runway.getStartName());
 
-            // Get angle based on runway codes (this needs to match the runway's real direction)
-            double angle = getRunwayAngle(runway);
+            // Slight offset to separate overlapping runways
+            double offsetX = Math.cos(Math.toRadians(angle + 90)) * spacing * i;
+            double offsetY = Math.sin(Math.toRadians(angle + 90)) * spacing * i;
 
-            // Start position for drawing runway
-            double startX = (width - visualLength) / 2.0;
-            double y = startY + i * spacing;
+            drawRunway(gc, centerX + offsetX, centerY + offsetY, visualLength, angle, scaleFactor, runway);
+        }
 
-            // Save current context and apply transformations
-            gc.save();
-            gc.translate(startX + visualLength / 2, y);  // Move origin to center of runway
-            gc.rotate(angle);  // Rotate based on the runway's angle
+        gc.restore(); // Undo rotation
+    }
 
-            // Draw the runway line
-            gc.strokeLine(-visualLength / 2, 0, visualLength / 2, 0);
+    private void drawRunway(GraphicsContext gc, double cx, double cy, double length, double angleDeg,
+                            double scaleFactor, Runway runway) {
 
-            // Draw runway labels (start and end points)
-            gc.fillText(runway.getStartName(), -visualLength / 2 - 40 * scaleFactor, -10 * scaleFactor);
-            gc.fillText(runway.getEndName(), visualLength / 2 + 10 * scaleFactor, -10 * scaleFactor);
+        gc.save();
+        gc.translate(cx, cy);
+        gc.rotate(angleDeg);
 
-            // Restore the graphics context
-            gc.restore();
+        // Draw runway line
+        gc.setStroke(Color.DARKGRAY);
+        gc.strokeLine(-length / 2, 0, length / 2, 0);
+
+        // Draw labels
+        gc.setFill(Color.WHITE);
+        gc.fillText(runway.getStartName(), -length / 2 - 30 * scaleFactor, -10 * scaleFactor);
+        gc.fillText(runway.getEndName(), length / 2 + 10 * scaleFactor, -10 * scaleFactor);
+
+        gc.restore();
+    }
+
+    private double getRunwayAngle(String runwayName) {
+        try {
+            String digits = runwayName.replaceAll("[^0-9]", "");
+            int number = Integer.parseInt(digits);
+            return (number % 36) * 10;
+        } catch (NumberFormatException e) {
+            return 0;
         }
     }
 
-    // Helper method to convert runway code to angle in degrees
-    private double getRunwayAngle(Runway runway) {
-        String startName = runway.getStartName().replaceAll("[LR]", "");
-        String endName = runway.getEndName().replaceAll("[LR]", "");
+    private void drawAxes(GraphicsContext gc, double centerX, double centerY) {
+        gc.setStroke(Color.RED);
+        gc.setLineWidth(2);
 
-        // Calculate angles based on runway headings
-        switch (startName) {
-            case "08":
-                if (runway.getStartName().contains("L")) return 80;  // Left (top) orientation
-                if (runway.getStartName().contains("R")) return 260;  // Right (down) orientation
-                return 90; // East
-            case "26":
-                if (runway.getStartName().contains("L")) return 260;  // Left (down) orientation
-                if (runway.getStartName().contains("R")) return 80;   // Right (top) orientation
-                return 270; // West
-            case "09": return 0;   // North (Top) orientation
-            case "27": return 180; // South (Bottom) orientation
-            case "16": return 270; // West (270 degrees)
-            case "33": return 90;  // East (90 degrees)
-            case "15": return 270; // West (270 degrees)
-            case "03": return 30;  // Northeast
-            case "21": return 210; // Southwest
-            case "12": return 120; // Southeast
-            case "30": return 300; // Northwest
-            case "360":
-            case "000": return 0;  // North (0 degrees)
-            case "180": return 180; // South (180 degrees)
-            default: return 0;      // Default to North if unknown
-        }
+        // Horizontal axis (after canvas rotation, this appears vertical)
+        gc.strokeLine(centerX - 300, centerY, centerX + 300, centerY);
+        gc.strokeText("180°", centerX - 320, centerY - 5);
+        gc.strokeText("000° / 360°", centerX + 310, centerY - 5);
+
+        // Vertical axis (after canvas rotation, this appears horizontal)
+        gc.strokeLine(centerX, centerY - 300, centerX, centerY + 300);
+        gc.strokeText("270°", centerX + 5, centerY - 310);
+        gc.strokeText("090°", centerX + 5, centerY + 320);
     }
 }
