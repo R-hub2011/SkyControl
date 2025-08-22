@@ -20,6 +20,8 @@ public class Aircraft {
         this.heading = heading;
         this.altitude = 6000;
         this.lastAltitude = 6000;
+
+
         this.flightNumber = generateFlightNumber();
     }
 
